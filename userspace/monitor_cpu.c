@@ -588,8 +588,8 @@ void start_pm_monitor_540104(void) {
 
         fprintf(stdout, "\e[1;1H\e[2J");
         fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
-        print_line("CPU Model", name);
-        print_line("Processor Code Name", codename);
+        print_line("CPU Model", "%s", name);
+        print_line("Processor Code Name", "%s", codename);
         print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
         print_line("SMU FW Version", "v%s", smu_fw_ver);
         print_line("PM Table Version", "0x%X (index-mapped)", obj.pm_table_version);
@@ -643,6 +643,20 @@ void start_pm_monitor(int force) {
         exit(0);
     }
 
+    // -f decodes an unknown table with the 0x240903 (Matisse) layout. Refuse when the table
+    // is smaller than that layout instead of reading past the end of the buffer; otherwise
+    // the values are at best approximate.
+    if (obj.pm_table_version != PM_TABLE_SUPPORTED_VERSION) {
+        if (obj.pm_table_size < sizeof(pm_table_0x240903)) {
+            fprintf(stderr, "PM table 0x%X is %u bytes, smaller than the 0x%X layout (%zu bytes) "
+                "that -f would use; refusing to decode it.\n", obj.pm_table_version,
+                obj.pm_table_size, PM_TABLE_SUPPORTED_VERSION, sizeof(pm_table_0x240903));
+            exit(1);
+        }
+        fprintf(stderr, "Warning: PM table 0x%X decoded with the 0x%X layout (-f); values may be wrong.\n",
+            obj.pm_table_version, PM_TABLE_SUPPORTED_VERSION);
+    }
+
     name        = get_processor_name();
     codename    = smu_codename_to_str(&obj);
     smu_fw_ver  = smu_get_fw_version(&obj);
@@ -650,8 +664,15 @@ void start_pm_monitor(int force) {
     scalar      = get_pbo_scalar(&obj);
 
     get_processor_topology(&ccds, &ccxs, &cores_per_ccx, &cores);
+    // the 0x240903 layout has 8 entries per core array
+    if (cores > sizeof(((pm_table_0x240903*)0)->CORE_C0) / sizeof(float))
+        cores = sizeof(((pm_table_0x240903*)0)->CORE_C0) / sizeof(float);
 
     pm_buf = calloc(obj.pm_table_size, sizeof(unsigned char));
+    if (!pm_buf) {
+        fprintf(stderr, "Out of memory.\n");
+        exit(-1);
+    }
     pmt = (ppm_table_0x240903)pm_buf;
 
     switch (obj.smu_if_version) {
@@ -682,12 +703,13 @@ void start_pm_monitor(int force) {
         fprintf(stdout, "\e[1;1H\e[2J");
 
         fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
-        print_line("CPU Model", name);
-        print_line("Processor Code Name", codename);
+        print_line("CPU Model", "%s", name);
+        print_line("Processor Code Name", "%s", codename);
         print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
         if (max_freq)
             print_line("Maximum Frequency", "%d MHz", max_freq);
-        print_line("Overdrive Scalar", scalar);
+        if (scalar)
+            print_line("Overdrive Scalar", "%s", scalar);
         print_line("SMU FW Version", "v%s", smu_fw_ver);
         print_line("MP1 IF Version", "v%d", if_ver);
         fprintf(stdout, "╰────────────────────────────────────────────────┴─────────────────────────────────────────────────╯\n");
@@ -819,7 +841,7 @@ void parse_args(int argc, char** argv) {
     core = 0;
     force = 0;
 
-    while ((c = getopt(argc, argv, "vmfuh:b:")) != -1) {
+    while ((c = getopt(argc, argv, "vmfu:hb:")) != -1) {
         switch (c) {
             case 'v':
                 print_version();
@@ -830,9 +852,15 @@ void parse_args(int argc, char** argv) {
             case 'f':
                 force = 1;
                 break;
-            case 'u':
-                // TODO
+            case 'u': {
+                int u = atoi(optarg);
+                if (u < 1 || u > 3600) {
+                    fprintf(stderr, "Update interval (-u) must be between 1 and 3600 seconds.\n");
+                    exit(1);
+                }
+                update_time_s = u;
                 break;
+            }
             case 'b': {
                 double b = atof(optarg);
                 if (b < 90.0 || b > 130.0) {
@@ -846,7 +874,8 @@ void parse_args(int argc, char** argv) {
                 show_help(argv[0]);
                 exit(0);
             case '?':
-                exit(0);
+                fprintf(stderr, "Run \"%s -h\" for the list of options.\n", argv[0]);
+                exit(1);
             default:
                 break;
         }
@@ -919,6 +948,16 @@ int main(int argc, char** argv) {
         (signal(SIGINT, signal_interrupt) == SIG_ERR)) {
         fprintf(stderr, "Can't set up signal hooks.\n");
         exit(-1);
+    }
+
+    // -h and -v need neither root nor the driver: answer them before elevating.
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "-h")) {
+            show_help(argv[0]);
+            exit(0);
+        }
+        if (!strcmp(argv[i], "-v"))
+            print_version();
     }
 
     if (!elevate_if_necessary(argc, argv))
