@@ -26,6 +26,11 @@ First published release of this fork.
 - `scripts/test.py`: code-name list follows the driver's enum (22 = Strix Point,
   24 = Hawk Point, up to 26 = Strix Halo).
 - `dkms.conf` is usable as is (no `@VERSION@` / `@CFLGS@` placeholders).
+- `scripts/test.py`: the SMU version check failed ("SMU Test: Failed!") on CPUs with a
+  four-part SMU version such as 4.84.4.0 (Zen 4 / Zen 5); it now uses the driver's format.
+- `monitor_cpu` 0x540104 view: MCLK and UCLK were swapped (confirmed at UCLK:MCLK 1:2 on
+  DDR5-6000: float 74 = UCLK, float 78 = MCLK); the CCD/CCX split, which used the Zen 2/3 fuse
+  layout and read 0 CCDs, is replaced by the plain core count.
 - README: sysfs permissions as the driver really sets them; code name 26 = Strix Halo.
 
 ### Versions

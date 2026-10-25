@@ -156,15 +156,22 @@ def test_get_version():
     if args == False:
         return False
 
-    v_test = "{:d}.{:d}.{:d}".format(
-        args[0] >> 16 & 0xFF, args[0] >> 8 & 0xFF, args[0] & 0xFF
-    )
+    # Same format as the driver (drv.c): four parts when the top byte is set
+    # (e.g. 4.84.4.0 on Raphael), otherwise three (e.g. 46.54.0 on Matisse).
+    v = args[0]
+    if v & 0xFF000000:
+        v_test = "{:d}.{:d}.{:d}.{:d}".format(v >> 24 & 0xFF, v >> 16 & 0xFF, v >> 8 & 0xFF, v & 0xFF)
+    else:
+        v_test = "{:d}.{:d}.{:d}".format(v >> 16 & 0xFF, v >> 8 & 0xFF, v & 0xFF)
 
-    if v_test == read_file_str(VER_PATH, 8):
-        print("Retrieved SMU Version: v{0}".format(v_test.split("\n")[0]))
+    with open(VER_PATH, "r") as fp:
+        v_file = fp.read().strip()
+
+    if v_test == v_file:
+        print("Retrieved SMU Version: v{0}".format(v_test))
         return True
 
-    print("SMU Test: Failed!")
+    print("SMU Test: Failed! (command returned {0}, version file says {1})".format(v_test, v_file))
     return False
 
 
