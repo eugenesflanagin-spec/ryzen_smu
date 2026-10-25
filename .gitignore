@@ -11,3 +11,9 @@ userspace/monitor_cpu
 Module.symvers
 modules.order
 NOTES.txt
+
+# packaging/build-local-pkg.sh output
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/*.tar.gz
+packaging/arch/*.pkg.tar.*

@@ -1,0 +1,54 @@
+# Maintainer: Eugene Flanagin <eflanagin@pm.me>
+# Contributor: Leonardo Gates (original ryzen_smu author, gitlab.com/leogx9r/ryzen_smu)
+# Contributor: amkillam (maintained fork, github.com/amkillam/ryzen_smu)
+#
+# GitHub-release package (not on the AUR). Builds the ryzen_smu kernel module with DKMS
+# from the eugenesflanagin-spec/ryzen_smu fork of amkillam/ryzen_smu. The kernel module
+# source is the same as amkillam/ryzen_smu main (d298366); this fork adds the Raphael
+# (Ryzen 7000, PM table 0x540104) monitor_cpu and a few monitor_cpu fixes. See README.md.
+#
+# Build from a git checkout without downloading anything: packaging/build-local-pkg.sh
+
+pkgname=ryzen_smu-raphael-dkms
+_pkgbase=ryzen_smu
+pkgver=0.1.7.raphael2
+pkgrel=1
+pkgdesc="Kernel driver (DKMS) exposing the AMD Ryzen SMU, with monitor_cpu PM table 0x540104 (Raphael) support"
+arch=('x86_64')
+url="https://github.com/eugenesflanagin-spec/ryzen_smu"
+license=('GPL-2.0-only' 'GPL-3.0-or-later')   # driver GPL-2.0, monitor_cpu + libsmu GPL-3.0+
+depends=('dkms' 'glibc')
+optdepends=('python: for the read-only self-test in /usr/share/ryzen_smu/scripts')
+provides=('ryzen_smu' 'ryzen_smu-dkms')
+conflicts=('ryzen_smu' 'ryzen_smu-dkms' 'ryzen_smu-dkms-git')
+source=("$_pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP')
+options=('!debug')
+
+build() {
+  cd "$_pkgbase-$pkgver/userspace"
+  # the upstream userspace Makefile hard-codes -march=native; use the distribution flags
+  ${CC:-gcc} $CPPFLAGS $CFLAGS -I../lib $LDFLAGS -o monitor_cpu monitor_cpu.c ../lib/libsmu.c -lm
+}
+
+check() {
+  cd "$_pkgbase-$pkgver"
+  # the three version numbers must agree, or DKMS keeps an old build of the same name
+  grep -qx "VERSION[[:space:]]*:= $pkgver" Makefile
+  grep -qx "PACKAGE_VERSION=\"$pkgver\"" dkms.conf
+  ./userspace/monitor_cpu -h | grep -q -- '-b<MHz>'
+}
+
+package() {
+  cd "$_pkgbase-$pkgver"
+  local dest="$pkgdir/usr/src/$_pkgbase-$pkgver"
+  # dkms.conf is usable as is; DKMS adds LLVM=1 itself for clang-built kernels
+  install -Dm644 -t "$dest" Makefile dkms.conf drv.c smu.c smu.h LICENSE
+
+  install -Dm755 userspace/monitor_cpu "$pkgdir/usr/bin/monitor_cpu"
+  install -Dm644 -t "$pkgdir/usr/share/$_pkgbase/scripts" scripts/*.py
+  install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md CHANGELOG.md CREDITS.md \
+    docs/USER-GUIDE.md docs/rsmu_commands.md
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 lib/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE.GPL-3.0"
+}

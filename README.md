@@ -1,5 +1,42 @@
 # Ryzen SMU
 
+> ## About this fork (eugenesflanagin-spec/ryzen_smu)
+>
+> This is a fork of [amkillam/ryzen_smu](https://github.com/amkillam/ryzen_smu), the maintained
+> continuation of Leonardo Gates' original [gitlab.com/leogx9r/ryzen_smu](https://gitlab.com/leogx9r/ryzen_smu).
+> **The kernel module is unchanged from amkillam `main`** (module version 0.1.7). What this fork adds:
+>
+> - **Ryzen 7000 "Raphael" support in `monitor_cpu`** (PM table `0x540104`, e.g. Ryzen 7 7800X3D):
+>   per-core temperature, clock and voltage, package power, IOD hotspot, FCLK / MCLK / UCLK,
+>   VSOC, VDDP. Only fields checked against independent sensors are shown.
+> - **Correct clocks on BCLK / eCLK-overclocked boards**: the reference clock is measured
+>   automatically (`-b<MHz>` overrides it).
+> - `monitor_cpu` fixes: `-h` works without an argument, `-u<seconds>` is implemented, `-f` no
+>   longer crashes or reads past the end of a small table.
+> - `scripts/test.py` knows every code name the driver knows (up to Strix Halo).
+> - `dkms.conf` works as is (no `@VERSION@` placeholders).
+> - An Arch Linux package with a release workflow that builds and install-tests it in a clean
+>   Arch container, and a plain-English [User Guide](docs/USER-GUIDE.md).
+>
+> The Raphael `monitor_cpu` change is also offered upstream as
+> [amkillam/ryzen_smu#54](https://github.com/amkillam/ryzen_smu/pull/54).
+>
+> **Install on Arch Linux:** download the package and `SHA256SUMS` from
+> [Releases](https://github.com/eugenesflanagin-spec/ryzen_smu/releases), then
+>
+> ```sh
+> sha256sum -c SHA256SUMS --ignore-missing
+> sudo pacman -S --needed dkms linux-headers
+> sudo pacman -U ryzen_smu-raphael-dkms-*-x86_64.pkg.tar.zst
+> sudo modprobe ryzen_smu
+> sudo monitor_cpu
+> ```
+>
+> Other distributions: `git clone https://github.com/eugenesflanagin-spec/ryzen_smu && cd ryzen_smu && sudo make dkms-install`.
+> Full instructions, checks and troubleshooting: [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
+> Changes: [CHANGELOG.md](CHANGELOG.md). Credits: [CREDITS.md](CREDITS.md).
+> Everything below is the upstream README (with small corrections).
+
 <img src="pics/preview1.jpg" width="400" height="650"> <img src="pics/preview2.jpg" width="400" height="650">
 
 <small>*N.B. Images above shows the potential capabilities of this driver, retrieved using the
@@ -120,6 +157,9 @@ Install it using your AUR helper of choice, example:
 ```sh
 yay -S ryzen_smu-dkms-git
 ```
+
+This fork's package with the Raphael `monitor_cpu` (`ryzen_smu-raphael-dkms`) is on the
+[Releases page](https://github.com/eugenesflanagin-spec/ryzen_smu/releases) instead of the AUR.
 
 ### Stand-alone Installation
 

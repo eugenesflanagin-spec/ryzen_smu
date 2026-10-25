@@ -2,6 +2,10 @@
  * Ryzen SMU Userspace Sensor Monitor
  * Copyright (C) 2020 Leonardo Gates <leogatesx9r@protonmail.com>
  *
+ * Modified 2026 by Eugene Flanagin (eugenesflanagin-spec/ryzen_smu fork):
+ * PM table 0x540104 (Ryzen 7000 "Raphael") monitor, reference-clock (-b) scaling,
+ * -u update interval, -h without an argument, bounds checks for -f.
+ *
  * This program is free software: you can redistribute it &&/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
