@@ -47,8 +47,8 @@
 #define R54_IOD_HOTSPOT     11
 #define R54_PKG_POWER        3
 #define R54_FCLK            70
-#define R54_MCLK            74   /* MCLK/UCLK are indistinguishable at 1:1 */
-#define R54_UCLK            78
+#define R54_UCLK            74   /* 1500 at DDR5-6000 UCLK:MCLK 1:2 */
+#define R54_MCLK            78   /* 3000 at DDR5-6000 (= MT/s / 2) */
 #define R54_VSOC            82
 #define R54_VDDP           269
 #define R54_VID            275
@@ -590,7 +590,11 @@ void start_pm_monitor_540104(void) {
         fprintf(stdout, "╭────────────────────────────────────────────────┬─────────────────────────────────────────────────╮\n");
         print_line("CPU Model", name);
         print_line("Processor Code Name", codename);
-        print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
+        // the fuse-based CCD/CCX split is the Zen 2/3 one and reads 0 CCDs on Raphael
+        if (ccds)
+            print_line("Core Configuration", "%d (%d-%d-%d)", cores, ccds, ccxs, cores_per_ccx);
+        else
+            print_line("Core Configuration", "%d cores", cores);
         print_line("SMU FW Version", "v%s", smu_fw_ver);
         print_line("PM Table Version", "0x%X (index-mapped)", obj.pm_table_version);
         print_line("Reference Clock", "%.2f MHz (%s, clocks scaled x%.4f)",
