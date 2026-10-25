@@ -135,7 +135,8 @@ jobs:
           monitor_cpu -h | tee help.txt
           grep -q -- '-b<MHz>' help.txt
           python3 -m py_compile /usr/share/ryzen_smu/scripts/*.py
-          test -f /usr/share/doc/ryzen_smu-raphael-dkms/USER-GUIDE.md
+          # the archlinux image skips usr/share/doc (NoExtract), so check the file list instead
+          pacman -Qlq ryzen_smu-raphael-dkms | grep -qx /usr/share/doc/ryzen_smu-raphael-dkms/USER-GUIDE.md
       - name: Uninstall cleanly
         run: |
           pacman -R --noconfirm ryzen_smu-raphael-dkms
