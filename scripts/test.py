@@ -169,6 +169,7 @@ def test_get_version():
 
 
 def test_get_codename():
+    # Same order as enum smu_processor_codename in smu.h (index = value of the sysfs file).
     codenames = [
         "Unspecified",
         "Colfax",
@@ -192,16 +193,25 @@ def test_get_codename():
         "Chagall",
         "Raphael",
         "Phoenix",
+        "Strix Point",
+        "Granite Ridge",
         "Hawk Point",
+        "Storm Peak",
+        "Strix Halo",
     ]
     args = read_file_str(CN_PATH, 3)
 
-    if args != False and int(args) != 0 and int(args) < len(codenames):
-        print("Processor Code Name: " + codenames[int(args)])
-        return True
+    if args == False or int(args) == 0:
+        print("Failed to detect processor code name!")
+        return False
 
-    print("Failed to detect processor code name!")
-    return False
+    idx = int(args)
+    if idx < len(codenames):
+        print("Processor Code Name: " + codenames[idx])
+    else:
+        # The driver only loads on codenames it knows, so this is a driver newer than this script.
+        print("Processor Code Name: unknown to this script (index {0}); continuing".format(idx))
+    return True
 
 
 def main():
