@@ -39,8 +39,7 @@ dkms-install:
 	cp $(CURDIR)/*.c $(DKMS_ROOT_PATH)
 	cp $(CURDIR)/*.h $(DKMS_ROOT_PATH)
 
-	sed -e "s/@CFLGS@/${MCFLAGS}/" \
-		-e "s/@VERSION@/$(VERSION)/" \
+	sed -e 's/^PACKAGE_VERSION=.*/PACKAGE_VERSION="$(VERSION)"/' \
 		-i $(DKMS_ROOT_PATH)/dkms.conf
 
 	dkms add ryzen_smu/$(VERSION)
