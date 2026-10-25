@@ -56,8 +56,23 @@ can also be accessed:
 - Raven Ridge ( Ryzen 2000[GEU] APU Series )
 - Raven Ridge 2
 
-When loaded, the driver exposes several files under sysfs which can only be read with root
-permissions (for obvious reasons) at the root path `/sys/kernel/ryzen_smu_drv`:
+When loaded, the driver exposes several files under sysfs at the root path
+`/sys/kernel/ryzen_smu_drv`. Their permissions are set by the driver:
+
+- read-only files (`drv_version`, `version`, `mp1_if_version`, `codename`, `pm_table`,
+  `pm_table_size`, `pm_table_version`) are mode `0444`: **any local user can read them**;
+- command files (`smu_args`, `mp1_smu_cmd`, `hsmp_smu_cmd`, `smn`, `rsmu_cmd`) are mode `0644`:
+  any user can read the last result, **only root can write** (send SMU commands, read/write SMN
+  addresses).
+
+Reading `pm_table` is not passive: when the last refresh is more than one kernel tick old (the
+driver's minimum interval is 1 ms), the driver first sends the SMU a "transfer table to DRAM"
+command (the very first read also queries the DRAM address and table version). Unprivileged users can therefore make
+the driver issue that command by reading the file in a loop. The bundled userspace library
+and `monitor_cpu` still require root (they check for it), because they also use the command
+files.
+
+The files are:
 
 - `drv_version`
 - `version`
@@ -152,18 +167,18 @@ After which you can verify the existence of the sysfs files and attempt to read 
 total 0
 drwxr-xr-x  2 root root    0 May  7 03:01 ./
 drwxr-xr-x 14 root root    0 May  7 03:01 ../
--r--------  1 root root 4.0K May  7 03:12 codename
--r--------  1 root root 4.0K May  7 03:12 drv_version
--rw-------  1 root root 4.0K May  7 03:10 hsmp_smu_cmd
--r--------  1 root root 4.0K May  7 03:10 mp1_if_version
--rw-------  1 root root 4.0K May  7 03:10 mp1_smu_cmd
--r--------  1 root root 4.0K May  7 03:12 pm_table
--r--------  1 root root 4.0K May  7 03:12 pm_table_size
--r--------  1 root root 4.0K May  7 03:12 pm_table_version
--rw-------  1 root root 4.0K May  7 03:10 rsmu_cmd
--rw-------  1 root root 4.0K May  7 03:10 smn
--rw-------  1 root root 4.0K May  7 03:10 smu_args
--r--------  1 root root 4.0K May  7 03:01 version
+-r--r--r--  1 root root 4.0K May  7 03:12 codename
+-r--r--r--  1 root root 4.0K May  7 03:12 drv_version
+-rw-r--r--  1 root root 4.0K May  7 03:10 hsmp_smu_cmd
+-r--r--r--  1 root root 4.0K May  7 03:10 mp1_if_version
+-rw-r--r--  1 root root 4.0K May  7 03:10 mp1_smu_cmd
+-r--r--r--  1 root root 4.0K May  7 03:12 pm_table
+-r--r--r--  1 root root 4.0K May  7 03:12 pm_table_size
+-r--r--r--  1 root root 4.0K May  7 03:12 pm_table_version
+-rw-r--r--  1 root root 4.0K May  7 03:10 rsmu_cmd
+-rw-r--r--  1 root root 4.0K May  7 03:10 smn
+-rw-r--r--  1 root root 4.0K May  7 03:10 smu_args
+-r--r--r--  1 root root 4.0K May  7 03:01 version
 
 # cat /sys/kernel/ryzen_smu_drv/version          
 SMU v46.54.0
@@ -261,6 +276,7 @@ enumeration:
 | 17h | 23      | Granite Ridge  |
 | 18h | 24      | Hawk Point     |
 | 19h | 25      | Storm Peak     |
+| 1Ah | 26      | Strix Halo     |
 
 Note: This file returns 2 characters of the 'Decimal' encoded index.
 
@@ -340,6 +356,8 @@ Note: File is a 32 bit word encoded in little-endian binary order.
 #### `/sys/kernel/ryzen_smu_drv/pm_table`
 
 On supported platforms, this file contains the PM table for the processor, as updated by the SMU.
+Each read makes the driver ask the SMU to refresh the table first (rate-limited to roughly once
+per millisecond / kernel tick).
 
 Note: This file is encoded directly by the SMU and contains an array of 32-bit floating point values
 whose structure is determined by the version of the table.
